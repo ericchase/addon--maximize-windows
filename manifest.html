@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manifest</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        a {
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="required">
+        <h1>required keys</h1>
+    </div>
+</body>
+
+<script>
+    const requiredDiv = document.getElementById('required');
+    const required_keys = {
+        chrome: {
+            manifest_version: 'https://developer.chrome.com/docs/extensions/mv3/manifest/manifest_version/',
+            name: 'https://developer.chrome.com/docs/extensions/mv3/manifest/name/',
+            version: 'https://developer.chrome.com/docs/extensions/mv3/manifest/version/'
+        },
+        firefox: {
+            manifest_version: 'https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/manifest_version/',
+            name: 'https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/name/',
+            version: 'https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/version/'
+        }
+    }
+
+    for (const browser in required_keys) {
+        requiredDiv.append()
+        const group = document.createElement('div');
+        group.classList.add('col');
+        group.innerHTML = `<h2>${browser}</h2>`;
+        document.getElementById('required').appendChild(group);
+
+        for (const key in required_keys[browser]) {
+            const link = document.createElement('div');
+            link.innerHTML = `<a href="${required_keys[browser][key]}">${key}</a>`;
+            group.appendChild(link);
+        }
+    }
+
+</script>
+
+</html>
