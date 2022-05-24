@@ -1,4 +1,4 @@
-const browser = chrome;
+const browser = chrome ?? browser;
 const version = browser.runtime.getManifest().version;
 
 // browser event listener registration
@@ -10,12 +10,12 @@ browser.runtime.onInstalled.addListener(function (details) {
     }
 });
 browser.runtime.onStartup.addListener(runtime$onStartup);
-browser.windows.onCreated.addListener((window) => windows$onCreated(window));
-browser.windows.onRemoved.addListener((windowId) => windows$onRemoved(windowId));
-browser.action.onClicked.addListener((tab) => action$onClicked(tab));
+browser.runtime.onMessage.addListener(runtime$onMessage);
+browser.windows.onCreated.addListener(windows$onCreated);
+browser.windows.onRemoved.addListener(windows$onRemoved);
+browser.action.onClicked.addListener(action$onClicked);
 browser.contextMenus.onClicked.addListener(contextMenus$onClicked);
 browser.storage.onChanged.addListener(storage$onChanged);
-
 
 function log() {
     const name = new Error().stack.split('\n')[2].trim().split(' ')[1];
@@ -28,7 +28,14 @@ async function runtime$onInstall() {
     log(`welcome to version`, version);
 
     try {
-        await storage.set(settings);
+        await storage.set({
+            'enabled': true,
+            'maximize-on-browser-startup': true,
+            'maximize-window-on-creation': true,
+            're-minimize-windows': true,
+            'open-windows-ids': []
+        });
+
         await createContextMenuItems();
     }
     catch (error) {
@@ -62,6 +69,37 @@ async function runtime$onStartup() {
     catch (error) {
         log(`error:`, error);
     }
+}
+
+// this function must not be async
+function runtime$onMessage(message, sender, sendResponse) {
+    log(`message:`, message);
+
+    (async function () {
+        const settings = await storage.get([
+            'enabled',
+            're-minimize-windows'
+        ]);
+
+        if (settings['enabled'] === false) return false;
+
+        try {
+            switch (message) {
+                case 'maximize-all-windows':
+                    await maximizeAll(settings['re-minimize-windows']);
+                    break;
+                default:
+                    log('unknown message');
+            }
+        }
+        catch (error) {
+            log(`error:`, error);
+        }
+
+        sendResponse();
+    })();
+
+    return true;
 }
 
 async function windows$onCreated(window) {
@@ -199,10 +237,7 @@ async function maximizeAll(re_minimize_windows) {
             }
         );
 
-        console.log(`windowList:`, windowList);
-
         for (const window of windowList) {
-            console.log(`window.state:`, window.state);
             if (window.state !== 'maximized') {
                 await maximize(window);
             }
