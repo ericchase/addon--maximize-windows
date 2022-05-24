@@ -19,13 +19,35 @@
 
         label:hover {
             cursor: pointer;
-            background-color: #eee;
+            background-color: #f0f0f0;
+        }
+
+        label:active {
+            background-color: #e3e3e3;
+        }
+
+        label.button {
+            background-color: #f0f0f0;
+            text-align: center;
+        }
+
+        label.button:hover {
+            background-color: #e3e3e3;
+            text-align: center;
+        }
+
+        label.button:active {
+            background-color: #bebebe;
         }
     </style>
 </head>
 
 <body>
-    <form></form>
+    <form>
+        <label class="button" id="maximize-all-windows">Maximize All Windows</label>
+        <br>
+        <span>Settings</span>
+    </form>
 </body>
 
 </html>
