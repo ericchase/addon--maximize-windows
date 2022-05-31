@@ -17,5 +17,5 @@
         "type": "module"
     },
 
-    "permissions": ["storage", "contextMenus"]
+    "permissions": ["storage", "contextMenus", "tabs"]
 }
