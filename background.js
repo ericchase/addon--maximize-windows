@@ -1,5 +1,19 @@
+import { BrowserPromises } from './browser-promises.js';
+import { URLExclusionList } from './exclusion-manager.js';
+
 const browser = chrome ?? browser;
+const { contextMenus, storage, tabs, windows } = BrowserPromises(browser);
 const version = browser.runtime.getManifest().version;
+
+
+// temporary global variables
+
+const _g = {
+    context_menu_lock: false,
+    exclusion_list: new URLExclusionList(),
+    startup_windows_ids: new Set(),
+};
+
 
 // browser event listener registration
 
@@ -22,20 +36,14 @@ function log() {
     console.log(`${name}`, ...arguments);
 }
 
+
 // event handlers
 
 async function runtime$onInstall() {
     log(`welcome to version`, version);
 
     try {
-        await storage.set({
-            'enabled': true,
-            'maximize-on-browser-startup': true,
-            'maximize-window-on-creation': true,
-            're-minimize-windows': true,
-            'open-windows-ids': []
-        });
-
+        await initializeSettings();
         await createContextMenuItems();
     }
     catch (error) {
@@ -47,6 +55,7 @@ async function runtime$onUpdate() {
     log(`welcome to version`, version);
 
     try {
+        await initializeSettings();
         await createContextMenuItems();
     }
     catch (error) {
@@ -54,16 +63,17 @@ async function runtime$onUpdate() {
     }
 }
 
-const startup_windows_ids = new Set();
-
 async function runtime$onStartup() {
     log(`welcome to version`, version);
 
     try {
         await createContextMenuItems();
 
-        for (const id of await storage.get('open-windows-ids')) {
-            startup_windows_ids.add(id);
+        const settings = await storage.get('open-windows-ids');
+
+        _g.startup_windows_ids.clear();
+        for (const id of settings['open-windows-ids']) {
+            _g.startup_windows_ids.add(id);
         }
     }
     catch (error) {
@@ -109,21 +119,27 @@ async function windows$onCreated(window) {
         'enabled',
         'maximize-on-browser-startup',
         'maximize-window-on-creation',
-        'open-windows-ids',
-        're-minimize-windows'
+        're-minimize-windows',
+        'open-windows-ids'
     ]);
-
-    if (settings['enabled'] === false) return;
 
     try {
         if (settings['open-windows-ids'].includes(window.id) === false) {
             settings['open-windows-ids'].push(window.id);
             await storage.set({ 'open-windows-ids': settings['open-windows-ids'] });
         }
+    } catch { }
 
-        if (startup_windows_ids.has(window.id)) {
-            startup_windows_ids.delete(window.id);
+    if (settings['enabled'] === false) return;
 
+    try {
+        const activeTab = await tabs.query({ active: true, windowId: window.id });
+        const activeURL = activeTab[0].url || activeTab[0].pendingUrl;
+        if (await isUrlExcluded(activeURL, _g.exclusion_list)) return;
+    } catch { }
+
+    try {
+        if (_g.startup_windows_ids.has(window.id)) {
             if (settings['maximize-on-browser-startup'] === true) {
                 if (window.state !== 'maximized') {
                     await maximize(window);
@@ -150,15 +166,10 @@ async function windows$onCreated(window) {
 async function windows$onRemoved(windowId) {
     log(`windowId:`, windowId);
 
-    const settings = await storage.get([
-        'enabled',
-        'open-windows-ids'
-    ]);
-
-    if (settings['enabled'] === false) return;
+    const settings = await storage.get(['open-windows-ids']);
 
     try {
-        if (settings['open-windows-ids'].includes(window.id)) {
+        if (settings['open-windows-ids'].includes(windowId)) {
             settings['open-windows-ids'] = settings['open-windows-ids'].filter(id => id !== windowId)
             await storage.set({ 'open-windows-ids': settings['open-windows-ids'] });
         }
@@ -220,7 +231,23 @@ async function storage$onChanged(changes, areaName) {
 
 // core functions
 
-async function maximizeAll(re_minimize_windows) {
+async function initializeSettings() {
+    log();
+
+    const settings = await storage.get(null);
+
+    await storage.set({
+        'enabled': settings['enabled'] ?? true,
+        'maximize-on-browser-startup': settings['maximize-on-browser-startup'] ?? true,
+        'maximize-window-on-creation': settings['maximize-window-on-creation'] ?? true,
+        're-minimize-windows': settings['re-minimize-windows'] ?? true,
+        'open-windows-ids': settings['open-windows-ids'] ?? [],
+        'mode-exclusive': settings['mode-exclusive'] ?? true,
+        'exclusion-list': settings['exclusion-list'] ?? []
+    });
+}
+
+async function maximizeAll() {
     log();
 
     try {
@@ -237,12 +264,17 @@ async function maximizeAll(re_minimize_windows) {
             }
         );
 
+        const tabList = await tabs.query({ active: true });
+
         for (const window of windowList) {
+            try {
+                const tab = tabList.find(tab => tab.windowId === window.id);
+                const url = tab.url || tab.pendingUrl;
+                if (await isUrlExcluded(url, _g.exclusion_list)) continue;
+            } catch { }
+
             if (window.state !== 'maximized') {
                 await maximize(window);
-            }
-            if (window.state === 'minimized' && re_minimize_windows === true) {
-                await minimize(window);
             }
             if (window.focused === true) {
                 windows.update(window.id, { focused: true });
@@ -276,19 +308,18 @@ async function minimize(window) {
     }
 }
 
-let context_menu_lock = false;
 async function createContextMenuItems() {
     log();
 
-    if (context_menu_lock) return;
-    context_menu_lock = true;
+    if (_g.context_menu_lock) return;
+    _g.context_menu_lock = true;
 
     const settings = await storage.get([
         'enabled',
         'maximize-on-browser-startup',
         'maximize-window-on-creation',
-        'open-windows-ids',
-        're-minimize-windows'
+        're-minimize-windows',
+        'open-windows-ids'
     ]);
 
     try {
@@ -311,109 +342,37 @@ async function createContextMenuItems() {
             id: 'maximize-window-on-creation',
             checked: settings['maximize-window-on-creation'],
             contexts: ['action'],
-            title: 'Maximize Window on Creation',
+            title: 'Maximize on Creation',
             type: 'checkbox',
         });
         await contextMenus.create({
             id: 're-minimize-windows',
             checked: settings['re-minimize-windows'],
             contexts: ['action'],
-            title: 'Re-minimize Windows',
+            title: 'Re-minimize on Browser Startup',
             type: 'checkbox',
         });
     } catch (error) {
         log(`error:`, error);
     }
 
-    context_menu_lock = false;
+    _g.context_menu_lock = false;
+}
+
+async function isUrlExcluded(url, exclusion_list) {
+    const settings = await storage.get([
+        'mode-exclusive',
+        'exclusion-list'
+    ]);
+
+    if (exclusion_list.isEmpty()) {
+        exclusion_list.set(settings['exclusion-list']);
+    }
+
+    return (settings['mode-exclusive'] ^ exclusion_list.includes(url)) === 0;
 }
 
 
-// converted callback functions to promise functions
-
-const contextMenus = {
-    create: function create(createProperties) {
-        return new Promise((resolve, reject) => {
-            browser.contextMenus.create(createProperties, function () {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    },
-    removeAll: function removeAll() {
-        return new Promise((resolve, reject) => {
-            browser.contextMenus.removeAll(function () {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    },
-    update: function update(updateProperties) {
-        return new Promise((resolve, reject) => {
-            browser.contextMenus.update(updateProperties, function () {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    }
-};
-
-const storage = {
-    set: function set(entries) {
-        return new Promise((resolve, reject) => {
-            browser.storage.local.set(entries, function () {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    },
-    get: function get(keys) {
-        return new Promise((resolve, reject) => {
-            browser.storage.local.get(keys, function (entries) {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve(entries);
-                }
-            });
-        });
-    }
-};
-
-const windows = {
-    getAll: function getAll(options) {
-        return new Promise((resolve, reject) => {
-            browser.windows.getAll(options, function (windows) {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve(windows);
-                }
-            });
-        });
-    },
-    update: function update(windowId, updateInfo) {
-        return new Promise((resolve, reject) => {
-            browser.windows.update(windowId, updateInfo, function () {
-                if (typeof browser.runtime.lastError !== 'undefined') {
-                    reject(browser.runtime.lastError);
-                } else {
-                    resolve();
-                }
-            });
-        });
-    }
-};
-
+//storage.set({ 'test': new Test('mytest') });
+//storage.get(['open-windows-ids']).then(function (_) { console.log(_); });
+//storage.remove(['test'])
