@@ -1,3 +1,6 @@
+// this could probably be more DRY
+
+// these functions are wrapped so we can inject the browser object
 export function BrowserPromises (browser) {
     const contextMenus = {
         create: function create(createProperties) {
