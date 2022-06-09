@@ -1,7 +1,7 @@
 // this could probably be more DRY
 
 // these functions are wrapped so we can inject the browser object
-export function BrowserPromises (browser) {
+export function BrowserPromises(browser) {
     const contextMenus = {
         create: function create(createProperties) {
             return new Promise((resolve, reject) => {
@@ -35,13 +35,13 @@ export function BrowserPromises (browser) {
                     }
                 });
             });
-        }
+        },
     };
 
     const storage = {
-        set: function set(entries) {
+        clear: function clear() {
             return new Promise((resolve, reject) => {
-                browser.storage.local.set(entries, function () {
+                browser.storage.local.clear(function () {
                     if (typeof browser.runtime.lastError !== 'undefined') {
                         reject(browser.runtime.lastError);
                     } else {
@@ -71,7 +71,18 @@ export function BrowserPromises (browser) {
                     }
                 });
             });
-        }
+        },
+        set: function set(entries) {
+            return new Promise((resolve, reject) => {
+                browser.storage.local.set(entries, function () {
+                    if (typeof browser.runtime.lastError !== 'undefined') {
+                        reject(browser.runtime.lastError);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+        },
     };
 
     const tabs = {
@@ -85,7 +96,7 @@ export function BrowserPromises (browser) {
                     }
                 });
             });
-        }
+        },
     }
 
     const windows = {
@@ -110,7 +121,7 @@ export function BrowserPromises (browser) {
                     }
                 });
             });
-        }
+        },
     };
 
     return {
