@@ -1,0 +1,41 @@
+#patterns {
+    display: flex;
+    flex-direction: column;
+}
+
+#patterns div {
+    display: flex;
+    /* gap: 8px; */
+    /* justify-content: space-between; */
+    margin-top: 8px;
+}
+
+#patterns div input {
+    vertical-align: text-bottom;
+}
+
+#patterns div span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#patterns div label.button {
+    padding: 0 8px;
+    margin-left: auto;
+}
+
+/* colors */
+
+#patterns label:hover,
+#patterns label.button {
+    background-color: #f0f0f0;
+}
+
+#patterns label:active,
+#patterns label.button:hover {
+    background-color: #e3e3e3;
+}
+
+#patterns label.button:active {
+    background-color: #bebebe;
+}
