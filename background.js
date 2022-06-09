@@ -1,16 +1,43 @@
-import { BrowserPromises } from './browser-promises.js';
-import { URLExclusionList } from './exclusion-manager.js';
+import { BrowserPromises } from './BrowserPromises.js';
+import { URLExclusionList } from './URLExclusionList.js';
+import { StorageCache } from './StorageCache.js';
 
 const browser = chrome ?? browser;
 const { contextMenus, storage, tabs, windows } = BrowserPromises(browser);
 const version = browser.runtime.getManifest().version;
+const cache = new StorageCache({
+    storageClear: () => storage.clear(),
+    storageGet: (keys) => storage.get(keys),
+    storageRemove: (keys) => storage.remove(keys),
+    storageSet: (entries) => storage.set(entries),
+});
+
+async function initializeStorage() {
+    log();
+
+    await cache.getAll();
+
+    const initialEntries = {
+        'enabled': true,
+        'maximize-on-browser-startup': true,
+        'maximize-window-on-creation': true,
+        're-minimize-windows': true,
+        'open-windows-ids': [],
+        'mode-exclusive': true,
+        'exclusion-list': [],
+    }
+    const initialKeys = Object.keys(initialEntries);
+    const missingKeys = cache.notInCache(initialKeys);
+    const missingEntries = Object.fromEntries(missingKeys.map(key => [key, initialEntries[key]]));
+
+    cache.set(missingEntries);
+}
 
 
 // temporary global variables
 
 const _g = {
     context_menu_lock: false,
-    exclusion_list: new URLExclusionList(),
     startup_windows_ids: new Set(),
 };
 
@@ -43,7 +70,7 @@ async function runtime$onInstall() {
     log(`welcome to version`, version);
 
     try {
-        await initializeSettings();
+        await initializeStorage();
         await createContextMenuItems();
     }
     catch (error) {
@@ -55,7 +82,7 @@ async function runtime$onUpdate() {
     log(`welcome to version`, version);
 
     try {
-        await initializeSettings();
+        await initializeStorage();
         await createContextMenuItems();
     }
     catch (error) {
@@ -69,10 +96,11 @@ async function runtime$onStartup() {
     try {
         await createContextMenuItems();
 
-        const settings = await storage.get('open-windows-ids');
+        const { 'open-windows-ids': open_windows_ids }
+            = await cache.get('open-windows-ids');
 
         _g.startup_windows_ids.clear();
-        for (const id of settings['open-windows-ids']) {
+        for (const id of open_windows_ids) {
             _g.startup_windows_ids.add(id);
         }
     }
@@ -86,17 +114,20 @@ function runtime$onMessage(message, sender, sendResponse) {
     log(`message:`, message);
 
     (async function () {
-        const settings = await storage.get([
+        const {
+            'enabled': enabled,
+            're-minimize-windows': re_minimize_windows
+        } = await cache.get([
             'enabled',
             're-minimize-windows'
         ]);
 
-        if (settings['enabled'] === false) return false;
+        if (!enabled) return false;
 
         try {
             switch (message) {
                 case 'maximize-all-windows':
-                    await maximizeAll(settings['re-minimize-windows']);
+                    await maximizeAll(re_minimize_windows);
                     break;
                 default:
                     log('unknown message');
@@ -115,7 +146,13 @@ function runtime$onMessage(message, sender, sendResponse) {
 async function windows$onCreated(window) {
     log(`window:`, window);
 
-    const settings = await storage.get([
+    const {
+        'enabled': enabled,
+        'maximize-on-browser-startup': maximize_on_browser_startup,
+        'maximize-window-on-creation': maximize_window_on_creation,
+        're-minimize-windows': re_minimize_windows,
+        'open-windows-ids': open_windows_ids
+    } = await cache.get([
         'enabled',
         'maximize-on-browser-startup',
         'maximize-window-on-creation',
@@ -124,36 +161,36 @@ async function windows$onCreated(window) {
     ]);
 
     try {
-        if (settings['open-windows-ids'].includes(window.id) === false) {
-            settings['open-windows-ids'].push(window.id);
-            await storage.set({ 'open-windows-ids': settings['open-windows-ids'] });
+        if (open_windows_ids.includes(window.id) === false) {
+            open_windows_ids.push(window.id);
+            cache.set({ 'open-windows-ids': open_windows_ids });
         }
     } catch { }
 
-    if (settings['enabled'] === false) return;
+    if (!enabled) return;
 
     try {
         const activeTab = await tabs.query({ active: true, windowId: window.id });
         const activeURL = activeTab[0].url || activeTab[0].pendingUrl;
-        if (await isUrlExcluded(activeURL, _g.exclusion_list)) return;
+        if (await isUrlExcluded(activeURL)) return;
     } catch { }
 
     try {
         if (_g.startup_windows_ids.has(window.id)) {
-            if (settings['maximize-on-browser-startup'] === true) {
+            if (maximize_on_browser_startup) {
                 if (window.state !== 'maximized') {
                     await maximize(window);
                 }
-                if (window.state === 'minimized' && settings['re-minimize-windows'] === true) {
+                if (window.state === 'minimized' && re_minimize_windows) {
                     await minimize(window);
                 }
-                if (window.focused === true) {
+                if (window.focused) {
                     windows.update(window.id, { focused: true });
                 }
             }
         }
         else {
-            if (settings['maximize-window-on-creation'] === true) {
+            if (maximize_window_on_creation) {
                 await maximize(window);
             }
         }
@@ -166,12 +203,13 @@ async function windows$onCreated(window) {
 async function windows$onRemoved(windowId) {
     log(`windowId:`, windowId);
 
-    const settings = await storage.get(['open-windows-ids']);
+    const { 'open-windows-ids': open_windows_ids }
+        = await cache.get(['open-windows-ids']);
 
     try {
-        if (settings['open-windows-ids'].includes(windowId)) {
-            settings['open-windows-ids'] = settings['open-windows-ids'].filter(id => id !== windowId)
-            await storage.set({ 'open-windows-ids': settings['open-windows-ids'] });
+        if (open_windows_ids.includes(windowId)) {
+            open_windows_ids = open_windows_ids.filter(id => id !== windowId)
+            cache.set({ 'open-windows-ids': open_windows_ids });
         }
     }
     catch (error) {
@@ -182,15 +220,18 @@ async function windows$onRemoved(windowId) {
 async function action$onClicked(tab) {
     log(`tab:`, tab);
 
-    const settings = await storage.get([
+    const {
+        'enabled': enabled,
+        're-minimize-windows': re_minimize_windows,
+    } = await cache.get([
         'enabled',
-        're-minimize-windows'
+        're-minimize-windows',
     ]);
 
-    if (settings['enabled'] === false) return;
+    if (enabled === false) return;
 
     try {
-        await maximizeAll(settings['re-minimize-windows']);
+        await maximizeAll(re_minimize_windows);
     }
     catch (error) {
         log(`error:`, error);
@@ -206,7 +247,7 @@ async function contextMenus$onClicked(info, tab) {
             case 'maximize-on-browser-startup':
             case 'maximize-window-on-creation':
             case 're-minimize-windows':
-                await storage.set({ [info.menuItemId]: info.checked });
+                cache.set({ [info.menuItemId]: info.checked });
                 break;
         }
     }
@@ -220,6 +261,7 @@ async function storage$onChanged(changes, areaName) {
 
     try {
         if (areaName === 'local') {
+            cache.invalidate(Object.keys(changes));
             await createContextMenuItems();
         }
     }
@@ -230,22 +272,6 @@ async function storage$onChanged(changes, areaName) {
 
 
 // core functions
-
-async function initializeSettings() {
-    log();
-
-    const settings = await storage.get(null);
-
-    await storage.set({
-        'enabled': settings['enabled'] ?? true,
-        'maximize-on-browser-startup': settings['maximize-on-browser-startup'] ?? true,
-        'maximize-window-on-creation': settings['maximize-window-on-creation'] ?? true,
-        're-minimize-windows': settings['re-minimize-windows'] ?? true,
-        'open-windows-ids': settings['open-windows-ids'] ?? [],
-        'mode-exclusive': settings['mode-exclusive'] ?? true,
-        'exclusion-list': settings['exclusion-list'] ?? []
-    });
-}
 
 async function maximizeAll() {
     log();
@@ -270,7 +296,7 @@ async function maximizeAll() {
             try {
                 const tab = tabList.find(tab => tab.windowId === window.id);
                 const url = tab.url || tab.pendingUrl;
-                if (await isUrlExcluded(url, _g.exclusion_list)) continue;
+                if (await isUrlExcluded(url)) continue;
             } catch { }
 
             if (window.state !== 'maximized') {
@@ -314,40 +340,44 @@ async function createContextMenuItems() {
     if (_g.context_menu_lock) return;
     _g.context_menu_lock = true;
 
-    const settings = await storage.get([
+    const {
+        'enabled': enabled,
+        'maximize-on-browser-startup': maximize_on_browser_startup,
+        'maximize-window-on-creation': maximize_window_on_creation,
+        're-minimize-windows': re_minimize_windows,
+    } = await cache.get([
         'enabled',
         'maximize-on-browser-startup',
         'maximize-window-on-creation',
-        're-minimize-windows',
-        'open-windows-ids'
+        're-minimize-windows'
     ]);
 
     try {
         await contextMenus.removeAll();
         await contextMenus.create({
             id: 'enabled',
-            checked: settings['enabled'],
+            checked: enabled,
             contexts: ['action'],
             title: 'Enable/Disable',
             type: 'checkbox',
         });
         await contextMenus.create({
             id: 'maximize-on-browser-startup',
-            checked: settings['maximize-on-browser-startup'],
+            checked: maximize_on_browser_startup,
             contexts: ['action'],
             title: 'Maximize on Browser Startup',
             type: 'checkbox',
         });
         await contextMenus.create({
             id: 'maximize-window-on-creation',
-            checked: settings['maximize-window-on-creation'],
+            checked: maximize_window_on_creation,
             contexts: ['action'],
             title: 'Maximize on Creation',
             type: 'checkbox',
         });
         await contextMenus.create({
             id: 're-minimize-windows',
-            checked: settings['re-minimize-windows'],
+            checked: re_minimize_windows,
             contexts: ['action'],
             title: 'Re-minimize on Browser Startup',
             type: 'checkbox',
@@ -359,20 +389,16 @@ async function createContextMenuItems() {
     _g.context_menu_lock = false;
 }
 
-async function isUrlExcluded(url, exclusion_list) {
-    const settings = await storage.get([
+async function isUrlExcluded(url) {
+    const {
+        'exclusion-list': list,
+        'mode-exclusive': mode,
+    } = await cache.get([
+        'exclusion-list',
         'mode-exclusive',
-        'exclusion-list'
     ]);
 
-    if (exclusion_list.isEmpty()) {
-        exclusion_list.set(settings['exclusion-list']);
-    }
-
-    return (settings['mode-exclusive'] ^ exclusion_list.includes(url)) === 0;
+    const exclusionList = new URLExclusionList();
+    exclusionList.set(list);
+    return (mode ^ exclusionList.includes(url)) === 0;
 }
-
-
-//storage.set({ 'test': new Test('mytest') });
-//storage.get(['open-windows-ids']).then(function (_) { console.log(_); });
-//storage.remove(['test'])
