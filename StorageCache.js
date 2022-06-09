@@ -1,10 +1,10 @@
 export class StorageCache {
-    constructor(storageGet, storageSet, storageRemove, storageClear) {
+    constructor({ storageClear, storageGet, storageRemove, storageSet, }) {
         this.cache = {};
-        this.storageGet = storageGet ?? (() => ({}));
-        this.storageSet = storageSet ?? (() => undefined);
-        this.storageRemove = storageRemove ?? (() => undefined);
         this.storageClear = storageClear ?? (() => undefined);
+        this.storageGet = storageGet ?? (() => ({}));
+        this.storageRemove = storageRemove ?? (() => undefined);
+        this.storageSet = storageSet ?? (() => undefined);
     }
 
     get size() {
@@ -76,6 +76,8 @@ StorageCache.prototype.getAll = async function () {
 };
 
 StorageCache.prototype.remove = function (keys) {
+    keys = StorageCache.sanitizeKeys(keys);
+
     this.storageRemove(keys);
     if (!Array.isArray(keys)) {
         keys = [keys];
@@ -93,6 +95,8 @@ StorageCache.prototype.set = function (entries) {
 };
 
 StorageCache.prototype.invalidate = function (keys) {
+    keys = StorageCache.sanitizeKeys(keys);
+
     for (const key of keys) {
         delete this.cache[key];
     }
