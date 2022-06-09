@@ -87,32 +87,33 @@ URLExclusionList.prototype.includesURL = function (url) {
     const [hostname, path, protocol] = URLExclusionList.URLToPattern(url);
 
     const i0 = this.searchHostname([hostname, path, protocol]);
-    if (i0 >= this.length) return false;
-    const pattern0 = this.at(i0);
-    if (pattern0[0].localeCompare(hostname) === 0) {
-        if (pattern0[1].localeCompare('*') === 0) {
-            if (pattern0[2].localeCompare('*') === 0) {
-                return true;
+    if (i0 < this.length) {
+        const pattern0 = this.at(i0);
+        if (pattern0[0].localeCompare(hostname) === 0) {
+            if (pattern0[1].localeCompare('*') === 0) {
+                if (pattern0[2].localeCompare('*') === 0) {
+                    return true;
+                }
             }
         }
-    }
 
-    const i1 = this.searchPath([hostname, path, protocol]);
-    const pattern1 = this.at(i1);
-    if (pattern1[0].localeCompare(hostname) === 0) {
-        if (pattern1[1].localeCompare(path) === 0) {
-            if (pattern1[2].localeCompare('*') === 0) {
-                return true;
+        const i1 = this.searchPath([hostname, path, protocol]);
+        const pattern1 = this.at(i1);
+        if (pattern1[0].localeCompare(hostname) === 0) {
+            if (pattern1[1].localeCompare(path) === 0) {
+                if (pattern1[2].localeCompare('*') === 0) {
+                    return true;
+                }
             }
         }
-    }
 
-    const i2 = this.searchPath([hostname, path, protocol]);
-    const pattern2 = this.at(i2);
-    if (pattern2[0].localeCompare(hostname) === 0) {
-        if (pattern2[1].localeCompare(path) === 0) {
-            if (pattern2[2].localeCompare(protocol) === 0) {
-                return true;
+        const i2 = this.searchPath([hostname, path, protocol]);
+        const pattern2 = this.at(i2);
+        if (pattern2[0].localeCompare(hostname) === 0) {
+            if (pattern2[1].localeCompare(path) === 0) {
+                if (pattern2[2].localeCompare(protocol) === 0) {
+                    return true;
+                }
             }
         }
     }
