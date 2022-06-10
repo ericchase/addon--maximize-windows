@@ -79,9 +79,6 @@ StorageCache.prototype.remove = function (keys) {
     keys = StorageCache.sanitizeKeys(keys);
 
     this.storageRemove(keys);
-    if (!Array.isArray(keys)) {
-        keys = [keys];
-    }
     for (const key of keys) {
         delete this.cache[key];
     }
