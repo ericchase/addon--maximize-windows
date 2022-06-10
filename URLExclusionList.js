@@ -8,17 +8,38 @@ export class URLExclusionList {
     }
 }
 
-// out [hostname, path, protocol]
+// out { scheme, domainName, port, path }
 URLExclusionList.URLToPattern = function (url) {
-    const { hostname, protocol } = new URL(url);
-    return [hostname, url.split(hostname)[1], protocol.slice(0, -1)];
+    const { protocol, hostname: domainName, port, pathname: path } = new URL(url);
+    const scheme = protocol.slice(0, -1);
+    return { scheme, domainName, port, path };
 }
 
+// in { scheme, domainName, port, path }
+URLExclusionList.PatternToURL = function (pattern) {
+    const { scheme, domainName, port, path } = pattern;
+    return `${scheme}://${domainName}${port ? ':' + port : ''}${path}`;
+}
+
+URLExclusionList.PatternMatch = function (pattern, { scheme, domainName, port, path }) {
+    if (pattern.domainName.localeCompare(domainName) === 0) {
+        if (pattern.path.localeCompare(path) === 0) {
+            if (pattern.scheme.localeCompare(scheme) === 0) {
+                if (pattern.port.localeCompare(port) === 0) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// in [ [scheme, domainName, port, path], ... ]
 URLExclusionList.prototype.set = function (list) {
     this.list = list;
 }
 
-// in [hostname, path, protocol], compare function
+// in { scheme, domainName, port, path }, compare function
 URLExclusionList.prototype.binarySearch = function (target, compare) {
     if (this.isEmpty()) return 0;
 
@@ -34,85 +55,92 @@ URLExclusionList.prototype.binarySearch = function (target, compare) {
     }
     return high;
 }
-URLExclusionList.prototype.searchHostname = function (pattern) {
+URLExclusionList.prototype.searchDomainName = function (pattern) {
     return this.binarySearch(pattern, (a, b) => {
-        return a[0].localeCompare(b[0]);
+        return a.domainName.localeCompare(b.domainName);
     });
 }
 URLExclusionList.prototype.searchPath = function (pattern) {
     return this.binarySearch(pattern, (a, b) => {
-        const lc0 = a[0].localeCompare(b[0]); if (lc0 !== 0) return lc0;
-        return a[1].localeCompare(b[1]);
+        const comp0 = a.domainName.localeCompare(b.domainName);
+        if (comp0 !== 0) return comp0;
+        return a.path.localeCompare(b.path);
     });
 }
-URLExclusionList.prototype.searchProtocol = function (pattern) {
+URLExclusionList.prototype.searchScheme = function (pattern) {
     return this.binarySearch(pattern, (a, b) => {
-        const lc0 = a[0].localeCompare(b[0]); if (lc0 !== 0) return lc0;
-        const lc1 = a[1].localeCompare(b[1]); if (lc1 !== 0) return lc1;
-        return a[2].localeCompare(b[2]);
+        const comp0 = a.domainName.localeCompare(b.domainName);
+        if (comp0 !== 0) return comp0;
+        const comp1 = a.path.localeCompare(b.path);
+        if (comp1 !== 0) return comp1;
+        return a.scheme.localeCompare(b.scheme);
+    });
+}
+URLExclusionList.prototype.searchPort = function (pattern) {
+    return this.binarySearch(pattern, (a, b) => {
+        const comp0 = a.domainName.localeCompare(b.domainName);
+        if (comp0 !== 0) return comp0;
+        const comp1 = a.path.localeCompare(b.path);
+        if (comp1 !== 0) return comp1;
+        const comp2 = a.scheme.localeCompare(b.scheme);
+        if (comp2 !== 0) return comp2;
+        return a.port.localeCompare(b.port);
     });
 }
 
-// in [hostname, path, protocol]
-URLExclusionList.prototype.add = function ([hostname, path = '/', protocol = 'https']) {
-    if (!hostname) throw new Error('URLExclusionList: `hostname` must be specified.');
+// in { scheme, domainName, port, path }
+URLExclusionList.prototype.add = function ({ scheme = '*', domainName, port = '*', path = '*' }) {
+    if (!domainName) throw new Error('URLExclusionList: `domainName` must be specified.');
 
-    if (path[0] !== '*' && path[0] !== '/')
+    if (path !== '*' && path[0] !== '/')
         path = '/' + path;
 
-    const index = this.searchProtocol([hostname, path, protocol]);
+    const index = this.searchPort({ scheme, domainName, port, path });
     if (index < this.length) {
-        const pattern = this.at(index);
-
-        if (pattern[0].localeCompare(hostname) === 0) {
-            if (pattern[1].localeCompare(path) === 0) {
-                if (pattern[2].localeCompare(protocol) === 0) {
-                    return;
-                }
-            }
-        }
+        if (URLExclusionList.PatternMatch(this.at(index), {
+            scheme, domainName, port, path
+        })) { return; }
     }
-    this.list.splice(index, 0, [hostname, path, protocol]);
+
+    this.list.splice(index, 0, [scheme, domainName, port, path]);
 }
 
-// out [hostname, path, protocol]
+// out { scheme, domainName, port, path }
 URLExclusionList.prototype.at = function (index) {
     if (index < 0) index += this.length;
-    return this.list[index];
+    const [scheme, domainName, port, path] = this.list[index];
+    return { scheme, domainName, port, path };
 }
 
 URLExclusionList.prototype.includesURL = function (url) {
     if (this.isEmpty()) return false;
 
-    const [hostname, path, protocol] = URLExclusionList.URLToPattern(url);
+    const pattern = URLExclusionList.URLToPattern(url);
+    const { scheme, domainName, port, path } = pattern;
 
-    const i0 = this.searchHostname([hostname, path, protocol]);
-    if (i0 < this.length) {
-        const pattern0 = this.at(i0);
-        if (pattern0[0].localeCompare(hostname) === 0) {
-            if (pattern0[1].localeCompare('*') === 0) {
-                if (pattern0[2].localeCompare('*') === 0) {
-                    return true;
-                }
-            }
-        }
+    const i_domainName = this.searchDomainName(pattern);
+    if (i_domainName < this.length) {
+        if (URLExclusionList.PatternMatch(this.at(i_domainName), {
+            scheme: '*', domainName, port: '*', path: '*',
+        })) { return true; }
 
-        const i1 = this.searchPath([hostname, path, protocol]);
-        const pattern1 = this.at(i1);
-        if (pattern1[0].localeCompare(hostname) === 0) {
-            if (pattern1[1].localeCompare(path) === 0) {
-                if (pattern1[2].localeCompare('*') === 0) {
-                    return true;
-                }
-            }
-        }
+        const i_path = this.searchPath(pattern);
+        if (i_path < this.length) {
+            if (URLExclusionList.PatternMatch(this.at(i_path), {
+                scheme: '*', domainName, port: '*', path,
+            })) { return true; }
 
-        const i2 = this.searchPath([hostname, path, protocol]);
-        const pattern2 = this.at(i2);
-        if (pattern2[0].localeCompare(hostname) === 0) {
-            if (pattern2[1].localeCompare(path) === 0) {
-                if (pattern2[2].localeCompare(protocol) === 0) {
-                    return true;
+            const i_scheme = this.searchScheme(pattern);
+            if (i_scheme < this.length) {
+                if (URLExclusionList.PatternMatch(this.at(i_scheme), {
+                    scheme, domainName, port: '*', path,
+                })) { return true; }
+
+                const i_port = this.searchPort(pattern);
+                if (i_port < this.length) {
+                    if (URLExclusionList.PatternMatch(this.at(i_port), {
+                        scheme, domainName, port, path,
+                    })) { return true; }
                 }
             }
         }
