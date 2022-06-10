@@ -1,5 +1,5 @@
 export class StorageCache {
-    constructor({ storageClear, storageGet, storageRemove, storageSet, }) {
+    constructor({ storageClear, storageGet, storageRemove, storageSet } = {}) {
         this.cache = {};
         this.storageClear = storageClear ?? (() => undefined);
         this.storageGet = storageGet ?? (() => ({}));
