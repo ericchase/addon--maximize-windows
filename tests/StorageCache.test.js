@@ -59,6 +59,11 @@ describe('StorageCache', () => {
 
     const storage = {};
 
+    function storageClear() {
+        storage.storage = {};
+        return Promise.resolve();
+    }
+
     function storageGet(keys) {
         if (keys === null) return Promise.resolve(storage.storage);
         return Promise.resolve(
@@ -68,11 +73,6 @@ describe('StorageCache', () => {
         );
     }
 
-    function storageSet(entries) {
-        Object.assign(storage.storage, entries);
-        return Promise.resolve();
-    }
-
     function storageRemove(keys) {
         storage.storage = Object.fromEntries(
             Object.entries(storage.storage).filter(([key]) => !keys.includes(key))
@@ -80,12 +80,17 @@ describe('StorageCache', () => {
         return Promise.resolve();
     }
 
-    function storageClear() {
-        storage.storage = {};
+    function storageSet(entries) {
+        Object.assign(storage.storage, entries);
         return Promise.resolve();
     }
 
-    const cache = new StorageCache(storageGet, storageSet, storageRemove, storageClear);
+    const cache = new StorageCache({
+        storageClear,
+        storageGet,
+        storageRemove,
+        storageSet,
+    });
 
     describe('... EMPTY CACHE/STORAGE', () => {
         beforeEach(() => {
