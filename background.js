@@ -1,15 +1,14 @@
 import { BrowserPromises } from './BrowserPromises.js';
-import { URLExclusionList } from './URLExclusionList.js';
 import { StorageCache } from './StorageCache.js';
 
 const browser = chrome ?? browser;
 const { contextMenus, storage, tabs, windows } = BrowserPromises(browser);
 const version = browser.runtime.getManifest().version;
 const cache = new StorageCache({
-    storageClear: () => storage.clear(),
-    storageGet: (keys) => storage.get(keys),
-    storageRemove: (keys) => storage.remove(keys),
-    storageSet: (entries) => storage.set(entries),
+    storageClear: storage.clear,
+    storageGet: storage.get,
+    storageRemove: storage.remove,
+    storageSet: storage.set,
 });
 
 async function initializeStorage() {
@@ -23,8 +22,6 @@ async function initializeStorage() {
         'maximize-window-on-creation': true,
         're-minimize-windows': true,
         'open-windows-ids': [],
-        'mode-exclusive': true,
-        'exclusion-list': [],
     }
     const initialKeys = Object.keys(initialEntries);
     const missingKeys = cache.notInCache(initialKeys);
@@ -117,10 +114,7 @@ function runtime$onMessage(message, sender, sendResponse) {
         const {
             'enabled': enabled,
             're-minimize-windows': re_minimize_windows
-        } = await cache.get([
-            'enabled',
-            're-minimize-windows'
-        ]);
+        } = await cache.get(['enabled', 're-minimize-windows']);
 
         if (!enabled) return false;
 
@@ -152,13 +146,9 @@ async function windows$onCreated(window) {
         'maximize-window-on-creation': maximize_window_on_creation,
         're-minimize-windows': re_minimize_windows,
         'open-windows-ids': open_windows_ids
-    } = await cache.get([
-        'enabled',
-        'maximize-on-browser-startup',
-        'maximize-window-on-creation',
-        're-minimize-windows',
-        'open-windows-ids'
-    ]);
+    } = await cache.get(['enabled', 'maximize-on-browser-startup',
+        'maximize-window-on-creation', 're-minimize-windows',
+        'open-windows-ids']);
 
     try {
         if (open_windows_ids.includes(window.id) === false) {
@@ -168,12 +158,6 @@ async function windows$onCreated(window) {
     } catch { }
 
     if (!enabled) return;
-
-    try {
-        const activeTab = await tabs.query({ active: true, windowId: window.id });
-        const activeURL = activeTab[0].url || activeTab[0].pendingUrl;
-        if (await isUrlExcluded(activeURL)) return;
-    } catch { }
 
     try {
         if (_g.startup_windows_ids.has(window.id)) {
@@ -223,10 +207,7 @@ async function action$onClicked(tab) {
     const {
         'enabled': enabled,
         're-minimize-windows': re_minimize_windows,
-    } = await cache.get([
-        'enabled',
-        're-minimize-windows',
-    ]);
+    } = await cache.get(['enabled', 're-minimize-windows']);
 
     if (enabled === false) return;
 
@@ -290,15 +271,7 @@ async function maximizeAll() {
             }
         );
 
-        const tabList = await tabs.query({ active: true });
-
         for (const window of windowList) {
-            try {
-                const tab = tabList.find(tab => tab.windowId === window.id);
-                const url = tab.url || tab.pendingUrl;
-                if (await isUrlExcluded(url)) continue;
-            } catch { }
-
             if (window.state !== 'maximized') {
                 await maximize(window);
             }
@@ -345,12 +318,8 @@ async function createContextMenuItems() {
         'maximize-on-browser-startup': maximize_on_browser_startup,
         'maximize-window-on-creation': maximize_window_on_creation,
         're-minimize-windows': re_minimize_windows,
-    } = await cache.get([
-        'enabled',
-        'maximize-on-browser-startup',
-        'maximize-window-on-creation',
-        're-minimize-windows'
-    ]);
+    } = await cache.get(['enabled', 'maximize-on-browser-startup',
+        'maximize-window-on-creation', 're-minimize-windows']);
 
     try {
         await contextMenus.removeAll();
@@ -387,18 +356,4 @@ async function createContextMenuItems() {
     }
 
     _g.context_menu_lock = false;
-}
-
-async function isUrlExcluded(url) {
-    const {
-        'exclusion-list': list,
-        'mode-exclusive': mode,
-    } = await cache.get([
-        'exclusion-list',
-        'mode-exclusive',
-    ]);
-
-    const exclusionList = new URLExclusionList();
-    exclusionList.set(list);
-    return (mode ^ exclusionList.includes(url)) === 0;
 }

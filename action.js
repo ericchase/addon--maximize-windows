@@ -1,37 +1,48 @@
+import { BrowserPromises } from './BrowserPromises.js';
+import { StorageCache } from './StorageCache.js';
+
 const browser = chrome ?? browser;
+const { storage, tabs } = BrowserPromises(browser);
 const version = browser.runtime.getManifest().version;
+const cache = new StorageCache({
+    storageClear: storage.clear,
+    storageGet: storage.get,
+    storageRemove: storage.remove,
+    storageSet: storage.set,
+});
 
-const checkboxSettings = {
-    'enabled': 'Enable/Disable',
-    'maximize-on-browser-startup': 'Maximize on Browser Startup',
-    'maximize-window-on-creation': 'Maximize Window on Creation',
-    're-minimize-windows': 'Re-minimize Windows'
-};
+const _g = {
+    parser: new DOMParser(),
+    parseHTML: function (str) {
+        return _g.parser.parseFromString(str, 'text/html').body.children[0];
+    },
+}
 
-const form = document.querySelector('form');
+const settings = await cache.getAll();
 
-document.getElementById('maximize-all-windows')
+document
+    .getElementById('maximize-all-windows')
     .addEventListener('click', function () {
         browser.runtime.sendMessage('maximize-all-windows');
     });
 
-// browser.runtime.getBackgroundPage(function (backgroundPage) {
-// console.log('backgroundPage', backgroundPage);
-browser.storage.local.get(null).then(function (items) {
-    for (const key in checkboxSettings) {
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = key;
-        checkbox.name = key;
-        checkbox.checked = items[key];
-        checkbox.addEventListener('change', function () {
-            browser.storage.local.set({ [key]: checkbox.checked });
-        });
-        const label = document.createElement('label');
-        label.setAttribute('for', key);
-        label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(checkboxSettings[key]));
-        form.appendChild(label);
-    }
-});
-// });
+// checkboxes
+
+const checkboxTitles = {
+    'enabled': 'Enable/Disable',
+    'maximize-on-browser-startup': 'Maximize on Browser Startup',
+    'maximize-window-on-creation': 'Maximize on Creation',
+    're-minimize-windows': 'Re-minimize on Browser Startup'
+};
+
+const checkboxesDiv = document.getElementById('settings-checkboxes');
+
+for (const key in checkboxTitles) {
+    const item = _g.parseHTML(
+        `<label class="checkbox"><input type="checkbox" id="${key}" ${settings[key] ? 'checked' : ''}>${checkboxTitles[key]}</label>`);
+    checkboxesDiv.append(item);
+
+    item.children[0].addEventListener('change', function () {
+        cache.set({ [key]: this.checked });
+    });
+}

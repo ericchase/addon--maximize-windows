@@ -8,46 +8,57 @@
     <title>Options</title>
     <script src="./action.js" type="module"></script>
     <style>
-        form {
+        * {
+            font-size: 14px;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
             white-space: nowrap;
+            width: 300px;
         }
 
         label {
             display: block;
-            padding: 2px;
         }
 
-        label:hover {
+        .button,
+        .checkbox,
+        .switch,
+        input[type="checkbox"] {
             cursor: pointer;
-            background-color: #f0f0f0;
         }
 
-        label:active {
-            background-color: #e3e3e3;
-        }
-
-        label.button {
-            background-color: #f0f0f0;
+        .button,
+        .switch {
             text-align: center;
         }
 
-        label.button:hover {
-            background-color: #e3e3e3;
-            text-align: center;
+        .row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
         }
 
-        label.button:active {
-            background-color: #bebebe;
+        .gap {
+            gap: 8px;
         }
     </style>
+    <link href="./action-settings.css" rel="stylesheet">
 </head>
 
 <body>
-    <form>
-        <label class="button" id="maximize-all-windows">Maximize All Windows</label>
+    <div id="settings">
+        <div id="actions">
+            <label class="button" id="maximize-all-windows">Maximize All Windows</label>
+        </div>
         <br>
         <span>Settings</span>
-    </form>
+        <div id="settings-checkboxes"></div>
+    </div>
 </body>
 
 </html>
