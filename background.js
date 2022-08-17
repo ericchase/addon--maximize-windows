@@ -12,123 +12,118 @@ const cache = new StorageCache({
 });
 
 async function initializeStorage() {
-    //log(``);
+    log(``);
 
     await cache.getAll();
 
     const initialEntries = {
-        'enabled': true,
-        'maximize-on-browser-startup': true,
+        enabled: true,
         'maximize-window-on-creation': true,
-        're-minimize-windows': true,
-        'open-windows-ids': [],
-    }
+        'ignore-minimized-windows': true,
+        'last-focused-tab-info': ''
+    };
     const initialKeys = Object.keys(initialEntries);
     const missingKeys = cache.notInCache(initialKeys);
-    const missingEntries = Object.fromEntries(missingKeys.map(key => [key, initialEntries[key]]));
+    const missingEntries = Object.fromEntries(missingKeys.map((key) => [key, initialEntries[key]]));
 
     cache.set(missingEntries);
 }
-
 
 // temporary global variables
 
 const _g = {
     context_menu_lock: false,
-    startup_windows_ids: new Set(),
+    last_focused_tab_info: ''
 };
-
 
 // browser event listener registration
 
 browser.runtime.onInstalled.addListener(function (details) {
     switch (details.reason) {
-        case "install": runtime$onInstall(); break;
-        case "update": runtime$onUpdate(); break;
+        case 'install':
+            runtime$onInstall();
+            break;
+        case 'update':
+            runtime$onUpdate();
+            break;
     }
 });
 browser.runtime.onStartup.addListener(runtime$onStartup);
 browser.runtime.onMessage.addListener(runtime$onMessage);
+browser.tabs.onActivated.addListener(tabs$onActivated);
 browser.windows.onCreated.addListener(windows$onCreated);
-browser.windows.onRemoved.addListener(windows$onRemoved);
+browser.windows.onFocusChanged.addListener(windows$onFocusChanged);
 browser.action.onClicked.addListener(action$onClicked);
 browser.contextMenus.onClicked.addListener(contextMenus$onClicked);
 browser.storage.onChanged.addListener(storage$onChanged);
 
 function log() {
-    const name = new Error().stack.split('\n')[2].trim().split(' ')[1];
-    console.log(`${name}`, ...arguments);
+    // const name = new Error().stack.split('\n')[2].trim().split(' ')[1];
+    // console.log(`${name}`, ...arguments);
 }
 
+function err() {
+    const name = new Error().stack.split('\n')[2].trim().split(' ')[1];
+    console.error(`${name}`, ...arguments);
+}
 
 // event handlers
 
 async function runtime$onInstall() {
-    //log(`welcome to version`, version);
+    log(`welcome to version`, version);
 
     try {
         await initializeStorage();
         await createContextMenuItems();
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function runtime$onUpdate() {
-    //log(`welcome to version`, version);
+    log(`welcome to version`, version);
 
     try {
         await initializeStorage();
         await createContextMenuItems();
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function runtime$onStartup() {
-    //log(`welcome to version`, version);
+    log(`welcome to version`, version);
+
+    const { 'last-focused-tab-info': last_focused_tab_info }
+        = await cache.get(['last-focused-tab-info']);
+    _g.last_focused_tab_info = last_focused_tab_info;
 
     try {
         await createContextMenuItems();
-
-        const { 'open-windows-ids': open_windows_ids }
-            = await cache.get('open-windows-ids');
-
-        _g.startup_windows_ids.clear();
-        for (const id of open_windows_ids) {
-            _g.startup_windows_ids.add(id);
-        }
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 // this function must not be async
 function runtime$onMessage(message, sender, sendResponse) {
-    //log(`message:`, message);
+    log(`message:`, message);
 
     (async function () {
-        const {
-            'enabled': enabled,
-            're-minimize-windows': re_minimize_windows
-        } = await cache.get(['enabled', 're-minimize-windows']);
-
+        const { enabled: enabled }
+            = await cache.get(['enabled']);
         if (!enabled) return false;
 
         try {
             switch (message) {
                 case 'maximize-all-windows':
-                    await maximizeAll(re_minimize_windows);
+                    await maximizeAll();
                     break;
                 default:
-                    //log(`unknown message`);
+                    log(`unknown message`);
             }
-        }
-        catch (error) {
-            //log(`error:`, error);
+        } catch (error) {
+            err(`error:`, error);
         }
 
         sendResponse();
@@ -137,189 +132,179 @@ function runtime$onMessage(message, sender, sendResponse) {
     return true;
 }
 
-async function windows$onCreated(window) {
-    //log(`window:`, window);
-
-    const {
-        'enabled': enabled,
-        'maximize-on-browser-startup': maximize_on_browser_startup,
-        'maximize-window-on-creation': maximize_window_on_creation,
-        're-minimize-windows': re_minimize_windows,
-        'open-windows-ids': open_windows_ids
-    } = await cache.get(['enabled', 'maximize-on-browser-startup',
-        'maximize-window-on-creation', 're-minimize-windows',
-        'open-windows-ids']);
+async function tabs$onActivated(activeInfo) {
+    log(`activeInfo:`, activeInfo);
 
     try {
-        if (open_windows_ids.includes(window.id) === false) {
-            open_windows_ids.push(window.id);
-            cache.set({ 'open-windows-ids': open_windows_ids });
-        }
-    } catch { }
+        const tab = await tabs.get(activeInfo.tabId);
+        if (tab) setLastFocusedTab(tab);
+    } catch (error) {
+        err(`error:`, error);
+    }
+}
+
+async function windows$onCreated(window) {
+    log(`window:`, window);
+
+    const {
+        enabled: enabled,
+        'maximize-window-on-creation': maximize_window_on_creation,
+    } = await cache.get([
+        'enabled',
+        'maximize-window-on-creation',
+    ]);
 
     if (!enabled) return;
 
     try {
-        if (_g.startup_windows_ids.has(window.id)) {
-            if (maximize_on_browser_startup) {
-                if (window.state !== 'maximized') {
-                    await maximize(window);
-                }
-                if (window.state === 'minimized' && re_minimize_windows) {
-                    await minimize(window);
-                }
-                if (window.focused) {
-                    windows.update(window.id, { focused: true });
-                }
-            }
+        if (maximize_window_on_creation) {
+            await maximize(window);
         }
-        else {
-            if (maximize_window_on_creation) {
-                await maximize(window);
-            }
+        const [tab] = await tabs.query({ active: true, windowId: window.id });
+        if (tab && isLastFocusedTab(tab)) {
+            await windows.update(window.id, { focused: true });
         }
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
-async function windows$onRemoved(windowId) {
-    //log(`windowId:`, windowId);
-
-    const { 'open-windows-ids': open_windows_ids }
-        = await cache.get(['open-windows-ids']);
+async function windows$onFocusChanged(windowId) {
+    log(`windowId:`, windowId);
 
     try {
-        if (open_windows_ids.includes(windowId)) {
-            open_windows_ids = open_windows_ids.filter(id => id !== windowId)
-            cache.set({ 'open-windows-ids': open_windows_ids });
-        }
-    }
-    catch (error) {
-        //log(`error:`, error);
+        const [tab] = await tabs.query({ active: true, windowId });
+        if (tab) setLastFocusedTab(tab);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function action$onClicked(tab) {
-    //log(`tab:`, tab);
+    log(`tab:`, tab);
 
     const {
-        'enabled': enabled,
-        're-minimize-windows': re_minimize_windows,
-    } = await cache.get(['enabled', 're-minimize-windows']);
+        enabled: enabled,
+        'ignore-minimized-windows': re_minimize_windows
+    } = await cache.get([
+        'enabled',
+        'ignore-minimized-windows',
+    ]);
 
     if (enabled === false) return;
 
     try {
         await maximizeAll(re_minimize_windows);
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function contextMenus$onClicked(info, tab) {
-    //log(`info:`, info, `tab:`, tab);
+    log(`info:`, info, `tab:`, tab);
 
     try {
         switch (info.menuItemId) {
             case 'enabled':
-            case 'maximize-on-browser-startup':
             case 'maximize-window-on-creation':
-            case 're-minimize-windows':
+            case 'ignore-minimized-windows':
                 cache.set({ [info.menuItemId]: info.checked });
                 break;
         }
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function storage$onChanged(changes, areaName) {
-    //log(`changes:`, changes, `areaName:`, areaName);
+    log(`changes:`, changes, `areaName:`, areaName);
 
     try {
         if (areaName === 'local') {
             cache.invalidate(Object.keys(changes));
             await createContextMenuItems();
         }
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
-
 // core functions
 
+function setLastFocusedTab(tab) {
+    log(``);
+
+    const tabInfo = {
+        active: tab.active,
+        index: tab.index,
+        title: tab.title,
+    }
+
+    cache.set({ 'last-focused-tab-info': JSON.stringify(tabInfo) });
+}
+
+function isLastFocusedTab(tab) {
+    log(``);
+
+    const tabInfo = {
+        active: tab.active,
+        index: tab.index,
+        title: tab.title,
+    }
+
+    return _g.last_focused_tab_info === JSON.stringify(tabInfo);
+}
+
 async function maximizeAll() {
-    //log(``);
+    log(``);
 
     try {
-        const windowList = await windows.getAll(
-            {
-                populate: false,
-                windowTypes: [
-                    'app',
-                    'devtools',
-                    'normal',
-                    'panel',
-                    'popup',
-                ]
-            }
-        );
+        const windowList = await windows.getAll({
+            populate: false,
+            windowTypes: ["normal", "popup", "panel", "app", "devtools"]
+        });
 
         for (const window of windowList) {
-            if (window.state !== 'maximized') {
-                await maximize(window);
-            }
-            if (window.focused === true) {
-                windows.update(window.id, { focused: true });
-            }
+            if (window.state !== 'maximized') { await maximize(window); }
+            if (window.focused) { await windows.update(window.id, { focused: true }); }
         }
-    }
-    catch (error) {
-        //log(`error:`, error);
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function maximize(window) {
-    //log(`window:`, window);
+    log(`window:`, window);
+
+    const { 'ignore-minimized-windows': ignore_minimized_windows }
+        = await cache.get(['ignore-minimized-windows',]);
 
     try {
-        await windows.update(window.id, { state: 'maximized' });
-    }
-    catch (error) {
-        //log(`error:`, error);
-    }
-}
-
-async function minimize(window) {
-    //log(`window:`, window);
-
-    try {
-        await windows.update(window.id, { state: 'minimized' });
-    }
-    catch (error) {
-        //log(`error:`, error);
+        if (window.state === 'minimized' && ignore_minimized_windows) {
+            // skip
+        } else {
+            await windows.update(window.id, { state: 'maximized' });
+        }
+    } catch (error) {
+        err(`error:`, error);
     }
 }
 
 async function createContextMenuItems() {
-    //log(``);
+    log(``);
 
     if (_g.context_menu_lock) return;
     _g.context_menu_lock = true;
 
     const {
-        'enabled': enabled,
-        'maximize-on-browser-startup': maximize_on_browser_startup,
+        enabled: enabled,
         'maximize-window-on-creation': maximize_window_on_creation,
-        're-minimize-windows': re_minimize_windows,
-    } = await cache.get(['enabled', 'maximize-on-browser-startup',
-        'maximize-window-on-creation', 're-minimize-windows']);
+        'ignore-minimized-windows': ignore_minimized_windows,
+    } = await cache.get([
+        'enabled',
+        'maximize-window-on-creation',
+        'ignore-minimized-windows',
+    ]);
 
     try {
         await contextMenus.removeAll();
@@ -327,14 +312,7 @@ async function createContextMenuItems() {
             id: 'enabled',
             checked: enabled,
             contexts: ['action'],
-            title: 'Enable/Disable',
-            type: 'checkbox',
-        });
-        await contextMenus.create({
-            id: 'maximize-on-browser-startup',
-            checked: maximize_on_browser_startup,
-            contexts: ['action'],
-            title: 'Maximize on Browser Startup',
+            title: 'Enable/Disable Extension',
             type: 'checkbox',
         });
         await contextMenus.create({
@@ -345,14 +323,14 @@ async function createContextMenuItems() {
             type: 'checkbox',
         });
         await contextMenus.create({
-            id: 're-minimize-windows',
-            checked: re_minimize_windows,
+            id: 'ignore-minimized-windows',
+            checked: ignore_minimized_windows,
             contexts: ['action'],
-            title: 'Ignore Minimized Windows on Browser Startup',
+            title: 'Ignore Minimized Windows',
             type: 'checkbox',
         });
     } catch (error) {
-        //log(`error:`, error);
+        err(`error:`, error);
     }
 
     _g.context_menu_lock = false;

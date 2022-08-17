@@ -86,6 +86,17 @@ export function BrowserPromises(browser) {
     };
 
     const tabs = {
+        get: function get(tabId) {
+            return new Promise((resolve, reject) => {
+                browser.tabs.get(tabId, function (tab) {
+                    if (typeof browser.runtime.lastError !== 'undefined') {
+                        reject(browser.runtime.lastError);
+                    } else {
+                        resolve(tab);
+                    }
+                });
+            });
+        },
         query: function query(queryInfo) {
             return new Promise((resolve, reject) => {
                 browser.tabs.query(queryInfo, function (tabs) {
@@ -100,13 +111,35 @@ export function BrowserPromises(browser) {
     }
 
     const windows = {
-        getAll: function getAll(options) {
+        get: function get(windowId, queryOptions) {
             return new Promise((resolve, reject) => {
-                browser.windows.getAll(options, function (windows) {
+                browser.windows.get(windowId, queryOptions, function (window) {
+                    if (typeof browser.runtime.lastError !== 'undefined') {
+                        reject(browser.runtime.lastError);
+                    } else {
+                        resolve(window);
+                    }
+                });
+            });
+        },
+        getAll: function getAll(queryOptions) {
+            return new Promise((resolve, reject) => {
+                browser.windows.getAll(queryOptions, function (windows) {
                     if (typeof browser.runtime.lastError !== 'undefined') {
                         reject(browser.runtime.lastError);
                     } else {
                         resolve(windows);
+                    }
+                });
+            });
+        },
+        getLastFocused: function getLastFocused(queryOptions) {
+            return new Promise((resolve, reject) => {
+                browser.windows.getLastFocused(queryOptions, function (window) {
+                    if (typeof browser.runtime.lastError !== 'undefined') {
+                        reject(browser.runtime.lastError);
+                    } else {
+                        resolve(window);
                     }
                 });
             });

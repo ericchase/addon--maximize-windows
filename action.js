@@ -29,10 +29,9 @@ document
 // checkboxes
 
 const checkboxTitles = {
-    'enabled': 'Enable/Disable',
-    'maximize-on-browser-startup': 'Maximize on Browser Startup',
+    'enabled': 'Enable/Disable Extension',
     'maximize-window-on-creation': 'Maximize on Creation',
-    're-minimize-windows': 'Ignore Minimized Windows on Browser Startup'
+    'ignore-minimized-windows': 'Ignore Minimized Windows'
 };
 
 const checkboxesDiv = document.getElementById('settings-checkboxes');
