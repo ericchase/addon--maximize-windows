@@ -12,7 +12,7 @@ const cache = new StorageCache({
 });
 
 async function initializeStorage() {
-    log();
+    //log(``);
 
     await cache.getAll();
 
@@ -64,31 +64,31 @@ function log() {
 // event handlers
 
 async function runtime$onInstall() {
-    log(`welcome to version`, version);
+    //log(`welcome to version`, version);
 
     try {
         await initializeStorage();
         await createContextMenuItems();
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function runtime$onUpdate() {
-    log(`welcome to version`, version);
+    //log(`welcome to version`, version);
 
     try {
         await initializeStorage();
         await createContextMenuItems();
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function runtime$onStartup() {
-    log(`welcome to version`, version);
+    //log(`welcome to version`, version);
 
     try {
         await createContextMenuItems();
@@ -102,13 +102,13 @@ async function runtime$onStartup() {
         }
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 // this function must not be async
 function runtime$onMessage(message, sender, sendResponse) {
-    log(`message:`, message);
+    //log(`message:`, message);
 
     (async function () {
         const {
@@ -124,11 +124,11 @@ function runtime$onMessage(message, sender, sendResponse) {
                     await maximizeAll(re_minimize_windows);
                     break;
                 default:
-                    log('unknown message');
+                    //log(`unknown message`);
             }
         }
         catch (error) {
-            log(`error:`, error);
+            //log(`error:`, error);
         }
 
         sendResponse();
@@ -138,7 +138,7 @@ function runtime$onMessage(message, sender, sendResponse) {
 }
 
 async function windows$onCreated(window) {
-    log(`window:`, window);
+    //log(`window:`, window);
 
     const {
         'enabled': enabled,
@@ -180,12 +180,12 @@ async function windows$onCreated(window) {
         }
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function windows$onRemoved(windowId) {
-    log(`windowId:`, windowId);
+    //log(`windowId:`, windowId);
 
     const { 'open-windows-ids': open_windows_ids }
         = await cache.get(['open-windows-ids']);
@@ -197,12 +197,12 @@ async function windows$onRemoved(windowId) {
         }
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function action$onClicked(tab) {
-    log(`tab:`, tab);
+    //log(`tab:`, tab);
 
     const {
         'enabled': enabled,
@@ -215,12 +215,12 @@ async function action$onClicked(tab) {
         await maximizeAll(re_minimize_windows);
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function contextMenus$onClicked(info, tab) {
-    log(`info:`, info, `tab:`, tab);
+    //log(`info:`, info, `tab:`, tab);
 
     try {
         switch (info.menuItemId) {
@@ -233,12 +233,12 @@ async function contextMenus$onClicked(info, tab) {
         }
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function storage$onChanged(changes, areaName) {
-    log(`changes:`, changes, `areaName:`, areaName);
+    //log(`changes:`, changes, `areaName:`, areaName);
 
     try {
         if (areaName === 'local') {
@@ -247,7 +247,7 @@ async function storage$onChanged(changes, areaName) {
         }
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
@@ -255,7 +255,7 @@ async function storage$onChanged(changes, areaName) {
 // core functions
 
 async function maximizeAll() {
-    log();
+    //log(``);
 
     try {
         const windowList = await windows.getAll(
@@ -281,34 +281,34 @@ async function maximizeAll() {
         }
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function maximize(window) {
-    log(`window:`, window);
+    //log(`window:`, window);
 
     try {
         await windows.update(window.id, { state: 'maximized' });
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function minimize(window) {
-    log(`window:`, window);
+    //log(`window:`, window);
 
     try {
         await windows.update(window.id, { state: 'minimized' });
     }
     catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 }
 
 async function createContextMenuItems() {
-    log();
+    //log(``);
 
     if (_g.context_menu_lock) return;
     _g.context_menu_lock = true;
@@ -352,7 +352,7 @@ async function createContextMenuItems() {
             type: 'checkbox',
         });
     } catch (error) {
-        log(`error:`, error);
+        //log(`error:`, error);
     }
 
     _g.context_menu_lock = false;
