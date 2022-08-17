@@ -4,7 +4,7 @@
 # Features
 
 ### Popup Page!
-![image](https://user-images.githubusercontent.com/30473157/169977698-aaae83d1-232f-40fc-821f-b5f13c7fb095.png)
+![2022-08-17_05 40 29](https://user-images.githubusercontent.com/30473157/185099576-2eba6fbe-4fc7-4ae1-930a-ece14d2acfb1.png)
 
 ### Context Menu Items!
-![image](https://user-images.githubusercontent.com/30473157/169979433-d4d9e396-27a0-479b-a968-7d9725ee58f0.png)
+![2022-08-17_05 40 43](https://user-images.githubusercontent.com/30473157/185099629-aeea5acf-f77f-446a-9df9-0783441b4d68.png)
