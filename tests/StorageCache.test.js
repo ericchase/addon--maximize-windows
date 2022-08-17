@@ -2,6 +2,7 @@ import {
     assertEquals,
     assertStrictEquals,
     assertThrows,
+    assertRejects,
 } from 'https://deno.land/std@0.142.0/testing/asserts.ts';
 
 import {
@@ -94,8 +95,19 @@ describe('StorageCache', () => {
 
     describe('... EMPTY CACHE/STORAGE', () => {
         beforeEach(() => {
-            storage.storage = {};
             cache.cache = {};
+            storage.storage = {};
+            assertEquals(cache.size, 0);
+            assertEquals(cache.cache, {});
+            assertEquals(Object.keys(storage.storage).length, 0);
+            assertEquals(storage.storage, {});
+        });
+
+        afterEach(() => {
+            assertEquals(cache.size, 0);
+            assertEquals(cache.cache, {});
+            assertEquals(Object.keys(storage.storage).length, 0);
+            assertEquals(storage.storage, {});
         });
 
         describe('size', () => {
@@ -106,8 +118,6 @@ describe('StorageCache', () => {
 
         describe('unsyncedClear', () => {
             it('Does nothing if cache is empty', () => {
-                assertEquals(cache.size, 0);
-                assertEquals(cache.cache, {});
                 cache.unsyncedClear();
                 assertEquals(cache.size, 0);
                 assertEquals(cache.cache, {});
@@ -121,9 +131,7 @@ describe('StorageCache', () => {
         });
 
         describe('clear', () => {
-            it('Does nothing if cache is empty', () => {
-                assertEquals(cache.size, 0);
-                assertEquals(cache.cache, {});
+            it('Does nothing if cache and storage are empty', () => {
                 cache.clear();
                 assertEquals(cache.size, 0);
                 assertEquals(cache.cache, {});
@@ -138,17 +146,17 @@ describe('StorageCache', () => {
 
         describe('getAll', () => {
             it('Returns {} if both cache and storage are empty.', async () => {
-                assertEquals(cache.size, 0);
                 assertEquals(await cache.getAll(), {});
-                assertEquals(cache.size, 0);
             });
         });
     });
 
     describe('... NON-EMPTY CACHE/STORAGE', () => {
         beforeEach(() => {
-            storage.storage = { a: 'a', b: 'b', c: 'c' };
             cache.cache = { a: 'a', c: 'c' };
+            storage.storage = { a: 'a', b: 'b', c: 'c' };
+            assertEquals(cache.size, 2);
+            assertEquals(Object.keys(storage.storage).length, 3);
         });
 
         describe('size', () => {
@@ -164,16 +172,23 @@ describe('StorageCache', () => {
         });
 
         describe('unsyncedClear', () => {
-            it('Clears cache but not storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
-                cache.unsyncedClear();
+            afterEach(() => {
                 assertEquals(cache.size, 0);
+                assertEquals(cache.cache, {});
                 assertEquals(Object.keys(storage.storage).length, 3);
+            });
+
+            it('Clears cache but not storage.', () => {
+                cache.unsyncedClear();
             });
         });
 
         describe('unsyncedGet', () => {
+            afterEach(() => {
+                assertEquals(cache.size, 2);
+                assertEquals(Object.keys(storage.storage).length, 3);
+            });
+
             it('Returns {} when called with "".', async () => {
                 assertEquals(cache.unsyncedGet(''), {});
             });
@@ -195,18 +210,23 @@ describe('StorageCache', () => {
         });
 
         describe('clear', () => {
-            it('Clears cache and storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
-                cache.clear();
+            afterEach(() => {
                 assertEquals(cache.size, 0);
-                assertEquals(Object.keys(storage.storage).length, 0);
                 assertEquals(cache.cache, {});
+                assertEquals(Object.keys(storage.storage).length, 0);
                 assertEquals(storage.storage, {});
+            });
+
+            it('Clears cache and storage.', () => {
+                cache.clear();
             });
         });
 
         describe('get', () => {
+            afterEach(() => {
+                assertEquals(Object.keys(storage.storage).length, 3);
+            });
+
             it('Returns {} when called with "".', async () => {
                 assertEquals(await cache.get(''), {});
             });
@@ -226,36 +246,32 @@ describe('StorageCache', () => {
                 assertEquals(await cache.get(['a', 'c']), { a: 'a', c: 'c' });
             });
             it('Returns entries after pulling from storage if not found in cache.', async () => {
-                assertEquals(cache.size, 2);
                 assertEquals(await cache.get('b'), { b: 'b' });
                 assertEquals(cache.size, 3);
             });
             it('Returns entries after pulling from storage if not found in cache.', async () => {
-                assertEquals(cache.size, 2);
                 assertEquals(await cache.get(['a', 'b', 'c']), { a: 'a', b: 'b', c: 'c' });
                 assertEquals(cache.size, 3);
             });
         });
 
         describe('getAll', () => {
+            afterEach(() => {
+                assertEquals(cache.size, Object.keys(storage.storage).length);
+            });
+
             it('Returns all entries after pulling from storage.', async () => {
-                assertEquals(cache.size, 2);
                 assertEquals(await cache.getAll(), { a: 'a', b: 'b', c: 'c' });
-                assertEquals(cache.size, 3);
             });
         });
 
         describe('set', () => {
             it('Adds new entries to cache and storage when missing.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
                 cache.set({ d: 'd' });
                 assertEquals(cache.size, 3);
                 assertEquals(Object.keys(storage.storage).length, 4);
             });
             it('Updates old entries in cache and storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
                 cache.set({ a: 'b' });
                 assertEquals(cache.size, 2);
                 assertEquals(Object.keys(storage.storage).length, 3);
@@ -265,15 +281,11 @@ describe('StorageCache', () => {
 
         describe('remove', () => {
             it('Removes existing entries from cache and storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
                 cache.remove('a');
                 assertEquals(cache.size, 1);
                 assertEquals(Object.keys(storage.storage).length, 2);
             });
             it('Does nothing if entry not found in cache or storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
                 cache.remove('d');
                 assertEquals(cache.size, 2);
                 assertEquals(Object.keys(storage.storage).length, 3);
@@ -281,26 +293,21 @@ describe('StorageCache', () => {
         });
 
         describe('invalidate', () => {
-            it('Removes existing entries from cache only.', () => {
-                assertEquals(cache.size, 2);
+            afterEach(() => {
                 assertEquals(Object.keys(storage.storage).length, 3);
+            });
+
+            it('Removes existing entries from cache only.', () => {
                 cache.invalidate('a');
                 assertEquals(cache.size, 1);
-                assertEquals(Object.keys(storage.storage).length, 3);
             });
             it('Does nothing if entry not found in cache, but exists in storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
                 cache.invalidate('b');
                 assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
             });
             it('Does nothing if entry not found in cache nor storage.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
                 cache.invalidate('d');
                 assertEquals(cache.size, 2);
-                assertEquals(Object.keys(storage.storage).length, 3);
             });
         });
     });
@@ -309,51 +316,49 @@ describe('StorageCache', () => {
         const cache = new StorageCache();
 
         beforeEach(() => {
-            storage.storage = {};
             cache.cache = { a: 'a', c: 'c' };
+            storage.storage = {};
+            assertEquals(cache.size, 2);
+            assertEquals(storage.storage, {});
+        });
+
+        afterEach(() => {
+            assertEquals(storage.storage, {});
         });
 
         describe('get', () => {
             it('Does not pull from storage when no storage functions provided.', async () => {
-                assertEquals(cache.size, 2);
                 assertEquals(await cache.get('b'), {});
                 assertEquals(cache.size, 2);
             });
         });
 
         describe('clear', () => {
-            it('Does not clear storage when no storage functions provided.', () => {
-                assertEquals(cache.size, 2);
-                cache.clear();
+            afterEach(() => {
                 assertEquals(cache.size, 0);
+            });
+
+            it('Does not clear storage when no storage functions provided.', () => {
+                cache.clear();
             });
         });
 
         describe('set', () => {
             it('Adds new entries to cache only when no storage functions provided.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(storage.storage, {});
                 cache.set({ d: 'd' });
                 assertEquals(cache.size, 3);
-                assertEquals(storage.storage, {});
             });
             it('Updates old entries in cache only when no storage functions provided.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(storage.storage, {});
                 cache.set({ a: 'b' });
                 assertEquals(cache.size, 2);
-                assertEquals(storage.storage, {});
                 assertEquals(cache.unsyncedGet('a'), { a: 'b' });
             });
         });
 
         describe('remove', () => {
             it('Removes existing entries from cache only when no storage functions provided.', () => {
-                assertEquals(cache.size, 2);
-                assertEquals(storage.storage, {});
                 cache.remove('a');
                 assertEquals(cache.size, 1);
-                assertEquals(storage.storage, {});
             });
         });
     });
