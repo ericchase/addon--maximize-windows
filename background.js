@@ -348,7 +348,7 @@ async function createContextMenuItems() {
             id: 're-minimize-windows',
             checked: re_minimize_windows,
             contexts: ['action'],
-            title: 'Re-minimize on Browser Startup',
+            title: 'Ignore Minimized Windows on Browser Startup',
             type: 'checkbox',
         });
     } catch (error) {

@@ -32,7 +32,7 @@ const checkboxTitles = {
     'enabled': 'Enable/Disable',
     'maximize-on-browser-startup': 'Maximize on Browser Startup',
     'maximize-window-on-creation': 'Maximize on Creation',
-    're-minimize-windows': 'Re-minimize on Browser Startup'
+    're-minimize-windows': 'Ignore Minimized Windows on Browser Startup'
 };
 
 const checkboxesDiv = document.getElementById('settings-checkboxes');
