@@ -1,2 +1,2 @@
-deno run --allow-read --allow-write --unstable .\release.js
+deno run --allow-read --allow-write --allow-run --unstable .\release.js
 pause
