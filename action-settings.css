@@ -1,28 +1,28 @@
 #settings label {
-    flex-grow: 1;
-    padding: 2px;
+	flex-grow: 1;
+	padding: 2px;
 }
 
-#settings label>input {
-    vertical-align: text-bottom;
+#settings label > input {
+	vertical-align: text-bottom;
 }
 
 #settings .symbol {
-    width: 1.5em;
-    text-align: center;
+	width: 1.5em;
+	text-align: center;
 }
 
 #settings #new-pattern {
-    margin-top: 8px;
+	margin-top: 8px;
 }
 
 #settings #pattern-list-toggle {
-    display: flex;
-    justify-content: space-between;
+	display: flex;
+	justify-content: space-between;
 }
 
 #settings #add-pattern-buttons {
-    margin-top: 8px;
+	margin-top: 8px;
 }
 
 /* colors */
@@ -30,30 +30,30 @@
 #settings label:hover,
 #settings label.button,
 #settings label.switch {
-    background-color: #f0f0f0;
+	background-color: #f0f0f0;
 }
 
 #settings label:active,
 #settings label.button:hover,
 #settings label.switch:hover {
-    background-color: #e3e3e3;
+	background-color: #e3e3e3;
 }
 
 #settings label.button:active,
 #settings label.switch:active {
-    background-color: #bebebe;
+	background-color: #bebebe;
 }
 
 #settings label.switch.on {
-    background-color: #8CB9F3;
-    color: #ffffff;
+	background-color: #8cb9f3;
+	color: #ffffff;
 }
 
 #settings #pattern-list-toggle {
-    /* make room for border during hover */
-    border-bottom: 1px solid #00000000;
+	/* make room for border during hover */
+	border-bottom: 1px solid #00000000;
 }
 
 #settings #pattern-list-toggle:hover {
-    border-bottom: 1px solid #bebebe;
+	border-bottom: 1px solid #bebebe;
 }

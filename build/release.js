@@ -1,16 +1,16 @@
 import * as fs from 'https://deno.land/std/fs/mod.ts';
 
 function bump_patch_version(manifest) {
-    let [major, minor, patch] = manifest.version.split('.');
-    ++patch;
-    manifest.version = [major, minor, patch].join('.');
+	let [major, minor, patch] = manifest.version.split('.');
+	++patch;
+	manifest.version = [major, minor, patch].join('.');
 }
 
 function copy_to_release(filename, outdir) {
-    fs.copySync(`../${filename}`, `${outdir}/${filename}`, {
-        overwrite: true,
-        preserveTimestamps: true,
-    });
+	fs.copySync(`../${filename}`, `${outdir}/${filename}`, {
+		overwrite: true,
+		preserveTimestamps: true,
+	});
 }
 
 // Read Manifest
@@ -41,7 +41,7 @@ copy_to_release(`StorageCache.js`, outdir);
 
 // Zip Directory
 const process = Deno.run({
-    cmd: ['PowerShell.exe', '-Command', 'Compress-Archive', '-Path', `${outdir}/*`, '-DestinationPath', `${outdir}.zip`]
+	cmd: ['PowerShell.exe', '-Command', 'Compress-Archive', '-Path', `${outdir}/*`, '-DestinationPath', `${outdir}.zip`],
 });
 await process.status();
 

@@ -1,64 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			http-equiv="X-UA-Compatible"
+			content="IE=edge"
+		/>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<title>Options</title>
+		<script
+			src="./action.js"
+			type="module"
+		></script>
+		<style>
+			* {
+				font-size: 14px;
+			}
 
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Options</title>
-    <script src="./action.js" type="module"></script>
-    <style>
-        * {
-            font-size: 14px;
-        }
+			body {
+				display: flex;
+				flex-direction: column;
+				white-space: nowrap;
+				width: 200px;
+			}
 
-        body {
-            display: flex;
-            flex-direction: column;
-            white-space: nowrap;
-            width: 200px;
-        }
+			label {
+				display: block;
+			}
 
-        label {
-            display: block;
-        }
+			.button,
+			.checkbox,
+			.switch,
+			input[type='checkbox'] {
+				cursor: pointer;
+			}
 
-        .button,
-        .checkbox,
-        .switch,
-        input[type="checkbox"] {
-            cursor: pointer;
-        }
+			.button,
+			.switch {
+				text-align: center;
+			}
 
-        .button,
-        .switch {
-            text-align: center;
-        }
+			.row {
+				display: flex;
+				flex-direction: row;
+				flex-wrap: wrap;
+				align-items: center;
+				justify-content: center;
+			}
 
-        .row {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-        }
+			.gap {
+				gap: 8px;
+			}
+		</style>
+		<link
+			href="./action-settings.css"
+			rel="stylesheet"
+		/>
+	</head>
 
-        .gap {
-            gap: 8px;
-        }
-    </style>
-    <link href="./action-settings.css" rel="stylesheet">
-</head>
-
-<body>
-    <div id="settings">
-        <div id="actions">
-            <label class="button" id="maximize-all-windows">Maximize All Windows</label>
-        </div>
-        <br>
-        <span>Settings</span>
-        <div id="settings-checkboxes"></div>
-    </div>
-</body>
-
+	<body>
+		<div id="settings">
+			<div id="actions">
+				<label
+					class="button"
+					id="maximize-all-windows"
+					>Maximize All Windows</label
+				>
+			</div>
+			<br />
+			<span>Settings</span>
+			<div id="settings-checkboxes"></div>
+		</div>
+	</body>
 </html>

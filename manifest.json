@@ -1,1 +1,12 @@
-{"manifest_version":3,"name":"Maximize Windows","version":"0.0.2","action":{"default_icon":{"16":"action-16.png","32":"action-32.png"},"default_title":"Maximize Windows","default_popup":"action.html"},"background":{"service_worker":"background.js","type":"module"},"permissions":["storage","contextMenus","tabs"]}
+{
+	"manifest_version": 3,
+	"name": "Maximize Windows",
+	"version": "0.0.2",
+	"action": {
+		"default_icon": { "16": "action-16.png", "32": "action-32.png" },
+		"default_title": "Maximize Windows",
+		"default_popup": "action.html"
+	},
+	"background": { "service_worker": "background.js", "type": "module" },
+	"permissions": ["storage", "contextMenus", "tabs"]
+}
