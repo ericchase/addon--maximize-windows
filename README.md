@@ -1,4 +1,15 @@
-# addon--maximize-windows
+# Deprecated ~~addon--maximize-windows~~
+Chrome and Firefox now seem to remember window position and size between sessions.  
+This extension is no longer necessary.
+
+
+.  
+.  
+.  
+.  
+.  
+.  
+
 Rewritten addon for Chrome's manifest version 3.
 
 https://chrome.google.com/webstore/detail/maximize-windows/oealklhjfdmeafmhkmgjplhlldkiblge
